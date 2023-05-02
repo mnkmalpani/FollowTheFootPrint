@@ -10,16 +10,18 @@ from pandas import DataFrame, json_normalize
 good_stocks = []
 
 nifty50_list =[
-"ITC.NS"
+"GOOGL"
 ]
 
 nasdaq100_list = ['ATVI','ADBE','ADP','ABNB','ALGN','GOOGL','GOOG','AMZN','AMD','AEP','AMGN','ADI','ANSS','AAPL','AMAT','ASML','AZN','TEAM','ADSK','BKR','BIIB','BKNG','AVGO','CDNS','CHTR','CTAS','CSCO','CTSH','CMCSA','CEG','CPRT','CSGP','COST','CRWD','CSX','DDOG','DXCM','FANG','DLTR','EBAY','EA','ENPH','EXC','FAST','FISV','FTNT','GILD','GFS','HON','IDXX','ILMN','INTC','INTU','ISRG','JD','KDP','KLAC','KHC','LRCX','LCID','LULU','MAR','MRVL','MELI','META','MCHP','MU','MSFT','MRNA','MDLZ','MNST','NFLX','NVDA','NXPI','ORLY','ODFL','PCAR','PANW','PAYX','PYPL','PDD','PEP','QCOM','REGN','RIVN','ROST','SGEN','SIRI','SBUX','SNPS','TMUS','TSLA','TXN','VRSK','VRTX','WBA','WBD','WDAY','XEL','ZM','ZS']
 
-nifty100_list = ['INDUSINDBK.NS','HDFCLIFE.NS','EICHERMOT.NS','SBICARD.NS','DABUR.NS','APOLLOHOSP.NS','POWERGRID.NS','DLF.NS','AXISBANK.NS','BAJAJFINSV.NS','PNB.NS', 'KOTAKBANK.NS','ADANIENT.NS','ZOMATO.NS','HINDALCO.NS','JUBLFOOD.NS','ICICIBANK.NS','SBIN.NS','TATAMOTORS.NS','ASIANPAINT.NS', 'BAJFINANCE.NS','MUTHOOTFIN.NS', 'DMART.NS','BOSCHLTD.NS','ONGC.NS','HDFC.NS', 'SRF.NS','ADANIPORTS.NS','BANKBARODA.NS','MARUTI.NS','ACC.NS', 'ITC.NS','HDFCBANK.NS','PAYTM.NS','HDFCAMC.NS', 'RELIANCE.NS','HAVELLS.NS','JSWSTEEL.NS', 'SBILIFE.NS','LICI.NS', 'HINDUNILVR.NS', 'BIOCON.NS','TATACONSUM.NS','NESTLEIND.NS','PIDILITIND.NS','CHOLAFIN.NS','INDIGO.NS','BAJAJ-AUTO.NS','VEDL.NS','PIIND.NS','ADANIGREEN.NS','TITAN.NS','ICICIPRULI.NS','TATASTEEL.NS','MARICO.NS','BRITANNIA.NS','ZYDUSLIFE.NS','M&M.NS','SIEMENS.NS','CIPLA.NS','ULTRACEMCO.NS','ICICIGI.NS','UPL.NS','TATAPOWER.NS','GAIL.NS','COLPAL.NS','BHARTIARTL.NS','MCDOWELL-N.NS','DRREDDY.NS','TORNTPHARM.NS','GODREJCP.NS','NYKAA.NS','PGHH.NS','AMBUJACEM.NS','DIVISLAB.NS','BERGEPAINT.NS','GRASIM.NS','COALINDIA.NS','NAUKRI.NS','WIPRO.NS','IOC.NS','SHREECEM.NS','GLAND.NS','LUPIN.NS','ADANITRANS.NS','HEROMOTOCO.NS','LT.NS','SUNPHARMA.NS','SAIL.NS','BAJAJHLDNG.NS','BPCL.NS','INDUSTOWER.NS','NTPC.NS','TCS.NS','HCLTECH.NS','TECHM.NS','BANDHANBNK.NS','INFY.NS','LTIM.NS']
+nifty100_list = ['INDUSINDBK.NS','HDFCLIFE.NS','EICHERMOT.NS','SBICARD.NS','DABUR.NS','APOLLOHOSP.NS','POWERGRID.NS','DLF.NS','AXISBANK.NS','BAJAJFINSV.NS','PNB.NS', 'KOTAKBANK.NS','ADANIENT.NS','ZOMATO.NS','HINDALCO.NS','JUBLFOOD.NS','ICICIBANK.NS','SBIN.NS','TATAMOTORS.NS','ASIANPAINT.NS', 'BAJFINANCE.NS','MUTHOOTFIN.NS', 'DMART.NS','BOSCHLTD.NS','ONGC.NS','HDFC.NS', 'SRF.NS','ADANIPORTS.NS','BANKBARODA.NS','MARUTI.NS','ACC.NS', 'ITC.NS','HDFCBANK.NS','PAYTM.NS','HDFCAMC.NS', 'RELIANCE.NS','HAVELLS.NS','JSWSTEEL.NS', 'SBILIFE.NS','LICI.NS', 'HINDUNILVR.NS', 'BIOCON.NS','TATACONSUM.NS','NESTLEIND.NS','PIDILITIND.NS','CHOLAFIN.NS','INDIGO.NS','BAJAJ-AUTO.NS','VEDL.NS','PIIND.NS','ADANIGREEN.NS','TITAN.NS','ICICIPRULI.NS','TATASTEEL.NS','MARICO.NS','BRITANNIA.NS','ZYDUSLIFE.NS','M&M.NS','SIEMENS.NS','CIPLA.NS','ULTRACEMCO.NS','ICICIGI.NS','UPL.NS','TATAPOWER.NS','GAIL.NS','COLPAL.NS','BHARTIARTL.NS','MCDOWELL-N.NS','DRREDDY.NS','TORNTPHARM.NS','GODREJCP.NS','NYKAA.NS','PGHH.NS','AMBUJACEM.NS','DIVISLAB.NS','BERGEPAINT.NS','GRASIM.NS','COALINDIA.NS','NAUKRI.NS','WIPRO.NS','IOC.NS','SHREECEM.NS','GLAND.NS','LUPIN.NS','ADANITRANS.NS','HEROMOTOCO.NS','LT.NS','SUNPHARMA.NS','SAIL.NS','BAJAJHLDNG.NS','BPCL.NS','INDUSTOWER.NS','NTPC.NS','TCS.NS','HCLTECH.NS','TECHM.NS','BANDHANBNK.NS','INFY.NS','LTIM.NS', 'HAL.NS']
 
-for stock in nasdaq100_list:
+current_date = datetime.now().strftime("%Y-%m-%d")
 
-    current_price: DataFrame = yf.download(stock, start="2023-02-26", end="2023-04-26",
+for stock in nifty50_list:
+
+    current_price: DataFrame = yf.download(stock, start="2023-02-26", end=current_date,
                             interval="1h", rounding=True)
 
     # current_price["Symbol"] = i # Adding column-Symbol to DataFrame- current_price
@@ -45,7 +47,7 @@ for stock in nasdaq100_list:
     data_ohlc['avg_%_red'] = data_ohlc.loc[data_ohlc['candle_colour'] == "Red", '%'].mean()
     data_ohlc['avg_%'] = data_ohlc.loc[:, '%'].mean()
 
-    data_ohlc.loc[(data_ohlc['%'] / data_ohlc['avg_%_green']) >= 2.0, 'leg'] = 'green_leg_out'
+    data_ohlc.loc[(data_ohlc['%'] / data_ohlc['avg_%_green']) >= 2.2, 'leg'] = 'green_leg_out'
     data_ohlc.loc[(data_ohlc['%'] / data_ohlc['avg_%_red']) >= 2.0, 'leg'] = 'red_leg_in'
 
     data_ohlc['max_value'] = data_ohlc[["open", "close"]].max(axis=1).apply(np.ceil)
@@ -174,7 +176,11 @@ for stock in nasdaq100_list:
         return False
 
     def get_fresh_zone(potential_stocks: List[Dict[str, Any]]) -> None:
-        """_summary_
+        """ is_it_fresh_zone
+                1. take the datetime for the support
+                2. takeout the dataset that is >= datetime from above
+                3. get the min value for the above filtered data set
+                4. if the min value <= max value of support then false else true
         """
 
         for item in potential_stocks:
@@ -193,23 +199,60 @@ for stock in nasdaq100_list:
                     item['fresh'] = 'N'
                 break
 
+    def get_stocks_with_follow_through(potential_stocks: List[Dict[str, Any]]) -> None:
+        """
+            1. take the datetime for the fresh zone
+            2. takeout the dataset that is >= datetime from above
+            3. Check if the next 3 candles are green
+            4. if yes mark them with follow_through flag
+        """
+
+        for item in potential_stocks:
+
+            if item['fresh'] == 'N':
+                item['follow_through'] = 'N'
+                continue
+
+            # timestamp
+            stock_time = item['date']
+
+            filtered_df = data_ohlc[data_ohlc['Datetime'] >= stock_time]
+
+            # print(filtered_df)
+            # print(filtered_df['candle_colour'].shift(1).values[2])
+            # print(filtered_df['candle_colour'].shift(2).values[4])
+            # print(filtered_df['candle_colour'].shift(3).values[6])
+
+            first_candle = filtered_df['candle_colour'].shift(1).values[2] if len(filtered_df['candle_colour'].shift(1).values) >= 3 else None
+            second_candle = filtered_df['candle_colour'].shift(2).values[4] if len(filtered_df['candle_colour'].shift(2).values) >= 5 else None
+            third_candle = filtered_df['candle_colour'].shift(3).values[6] if len(filtered_df['candle_colour'].shift(3).values) >= 7 else None
+
+            if (first_candle == 'Green') \
+                and  (second_candle == 'Green') \
+                and  (third_candle == 'Green') \
+                :
+                item['follow_through'] = 'Y'
+            else:
+                item['follow_through'] = 'N'
+
     achievement = data_ohlc.to_dict('records')
 
+    # get good demand zone
     get_good_dz(achievement=achievement)
-    # print(get_good_dz(achievement=achievement))
 
+    # get fresh zone
     get_fresh_zone(potential_stocks=potential_stocks)
+
+    # get follow through
+    get_stocks_with_follow_through(potential_stocks=potential_stocks)
 
     good_stocks.extend(potential_stocks)
 
+    print(potential_stocks)
 
+
+# normalise into DF
 df = json_normalize(good_stocks)
-df[df['fresh'] == 'Y'].to_csv('potential_stocks_US.csv', encoding='utf-8', index=False)
 
-
-
-# is_it_fresh_zone
-# 1. take the datetime for the support
-# 2. takeout the dataset that is >= datetime from above
-# 3. get the min value for the above filtered data set
-# 4. if the min value <= max value of support then false else true
+# get a csv with a follow_through
+df[df['follow_through'] == 'Y'].to_csv('potential_stocks_ind.csv', encoding='utf-8', index=False)
