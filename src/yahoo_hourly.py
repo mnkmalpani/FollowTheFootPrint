@@ -19,7 +19,7 @@ nifty100_list = ['INDUSINDBK.NS','HDFCLIFE.NS','EICHERMOT.NS','SBICARD.NS','DABU
 
 current_date = datetime.now().strftime("%Y-%m-%d")
 
-for stock in nifty50_list:
+for stock in nasdaq100_list:
 
     current_price: DataFrame = yf.download(stock, start="2023-02-26", end=current_date,
                             interval="1h", rounding=True)
@@ -69,8 +69,8 @@ for stock in nifty50_list:
             , 'pivot'] = 'support'
 
     # support for situation 1 when pivot is just smaller than all others
-    data_ohlc.loc[ ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(1) ) & ( data_ohlc['min_value'] < data_ohlc['min_value'].shift(2)) & ( data_ohlc['min_value'] < data_ohlc['min_value'].shift(3)) & ( data_ohlc['min_value'] < data_ohlc['min_value'].shift(4))
-                & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(-1)) & ( data_ohlc['min_value'] < data_ohlc['min_value'].shift(-2)) & ( data_ohlc['min_value'] < data_ohlc['min_value'].shift(-3)) & ( data_ohlc['min_value'] < data_ohlc['min_value'].shift(-4))
+    data_ohlc.loc[ ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(1) ) & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(2)) & ( data_ohlc['min_value'] < data_ohlc['min_value'].shift(3)) & ( data_ohlc['min_value'] < data_ohlc['min_value'].shift(4))
+                & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(-1)) & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(-2)) & ( data_ohlc['min_value'] < data_ohlc['min_value'].shift(-3)) & ( data_ohlc['min_value'] < data_ohlc['min_value'].shift(-4))
             , 'pivot'] = 'support'
 
     # define base( could be <= avg * 0.25), legin (3x) leg out then try finding pivot (pivot could be percent change before and after)
@@ -105,7 +105,7 @@ for stock in nifty50_list:
 
             if item['dz'] == 'Y':
                 dz_points.append((item['Datetime'], item['dz']))
-                fresh_zone_helper_list.append((item['Datetime'], item['dz'], item['min_value']))
+                fresh_zone_helper_list.append((item['Datetime'], item['dz'], item['low']))
 
         # print(dz_points)
 
@@ -166,7 +166,7 @@ for stock in nifty50_list:
 
         datetime_filter = support_for_dz[0]
 
-        filtered_df = data_ohlc[data_ohlc['Datetime'] >= datetime_filter]
+        filtered_df = data_ohlc[data_ohlc['Datetime'] > datetime_filter]
 
         min_value = filtered_df['low'].loc[filtered_df['low'].idxmin()]      # Minimum in column
 
@@ -248,11 +248,8 @@ for stock in nifty50_list:
 
     good_stocks.extend(potential_stocks)
 
-    print(potential_stocks)
-
-
 # normalise into DF
 df = json_normalize(good_stocks)
 
 # get a csv with a follow_through
-df[df['follow_through'] == 'Y'].to_csv('potential_stocks_ind.csv', encoding='utf-8', index=False)
+df[df['follow_through'] == 'Y'].to_csv('potential_stocks_US.csv', encoding='utf-8', index=False)
