@@ -148,22 +148,18 @@ for stock in nasdaq100_list:
             else:
                 print("Not Good DZ for %s on `date`: %s" % (stock, item[0]))
 
-        # return "No Dz found for %s" % stock if not found else "Dz found for %s, please check!" % stock
         return "Analysis Done!"
 
     achievement = data_ohlc.to_dict('records')
 
     get_good_dz(achievement=achievement)
-    # print(get_good_dz(achievement=achievement))
 
     # with open('src/potential_stock.json', 'w') as fout:
     #     json.dump(potential_stocks , fout)
-
-    # time.sleep(4)
 
     # print(data_ohlc[['Date','%', 'avg_%', 'avg_%_green', 'avg_%_red', 'max_value', 'pivot', 'leg', 'dz']])
     # print(data_ohlc.loc[data_ohlc['candle_colour'] == "Green", '%'], data_ohlc[['Date', 'open', 'close', 'candle_colour']])
 
 df = json_normalize(potential_stocks)
-df.to_csv('potential_stocks_US.csv', encoding='utf-8', index=False)
+df.to_csv('potential_stocks_ind.csv', encoding='utf-8', index=False)
 

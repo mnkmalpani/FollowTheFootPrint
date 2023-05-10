@@ -10,7 +10,7 @@ from pandas import DataFrame, json_normalize
 good_stocks = []
 
 nifty50_list =[
-"GOOGL"
+"ASML"
 ]
 
 nasdaq100_list = ['ATVI','ADBE','ADP','ABNB','ALGN','GOOGL','GOOG','AMZN','AMD','AEP','AMGN','ADI','ANSS','AAPL','AMAT','ASML','AZN','TEAM','ADSK','BKR','BIIB','BKNG','AVGO','CDNS','CHTR','CTAS','CSCO','CTSH','CMCSA','CEG','CPRT','CSGP','COST','CRWD','CSX','DDOG','DXCM','FANG','DLTR','EBAY','EA','ENPH','EXC','FAST','FISV','FTNT','GILD','GFS','HON','IDXX','ILMN','INTC','INTU','ISRG','JD','KDP','KLAC','KHC','LRCX','LCID','LULU','MAR','MRVL','MELI','META','MCHP','MU','MSFT','MRNA','MDLZ','MNST','NFLX','NVDA','NXPI','ORLY','ODFL','PCAR','PANW','PAYX','PYPL','PDD','PEP','QCOM','REGN','RIVN','ROST','SGEN','SIRI','SBUX','SNPS','TMUS','TSLA','TXN','VRSK','VRTX','WBA','WBD','WDAY','XEL','ZM','ZS']
@@ -19,7 +19,7 @@ nifty100_list = ['INDUSINDBK.NS','HDFCLIFE.NS','EICHERMOT.NS','SBICARD.NS','DABU
 
 current_date = datetime.now().strftime("%Y-%m-%d")
 
-for stock in nasdaq100_list:
+for stock in nifty100_list:
 
     current_price: DataFrame = yf.download(stock, start="2023-02-26", end=current_date,
                             interval="1h", rounding=True)
@@ -235,6 +235,49 @@ for stock in nasdaq100_list:
             else:
                 item['follow_through'] = 'N'
 
+    def is_it_base_candle(open: float, close: float, low: float, high: float) -> bool:
+        """
+        """
+
+        return True if (abs(close-open)/abs(high-low))*100 <= 50.0 else False
+
+    def get_stocks_with_base_before_follow_through(potential_stocks: List[Dict[str, Any]]) -> None:
+        """
+            1. Pick Follow through stocks
+            2. check if the candle before is a base candle
+            3. if yes, then check if it's max(open, close) is less than 1/3rd of (open+close of leg_out)
+                # with above logic we are trying to make sure that the base candle is lower than legout candle
+            4. if yes then it is follow_through with proper base candle.
+        Args:
+            potential_stocks (List[Dict[str, Any]]): _description_
+        """
+
+        for item in potential_stocks:
+
+            if item['follow_through'] == 'N':
+                continue
+
+            # timestamp
+            stock_time = item['date']
+
+            filtered_df = data_ohlc[data_ohlc['Datetime'] <= stock_time]
+
+            if not is_it_base_candle(open=filtered_df['open'].shift(1).values.tolist().pop(), close=filtered_df['close'].shift(1).values.tolist().pop(), low=filtered_df['low'].shift(1).values.tolist().pop(), high=filtered_df['high'].shift(1).values.tolist().pop()):
+                item['follow_through_with_base'] = 'N'
+                continue
+
+            max_of_base_candle = max(filtered_df['open'].shift(1).values.tolist().pop(), filtered_df['close'].shift(1).values.tolist().pop())
+            max_leg_out_candle = max(filtered_df['open'].values.tolist().pop(),filtered_df['close'].values.tolist().pop())
+            min_leg_out_candle = min(filtered_df['open'].values.tolist().pop(),filtered_df['close'].values.tolist().pop())
+            one_third_of_leg_out_candle = (min_leg_out_candle+(max_leg_out_candle-min_leg_out_candle)/3)
+
+            if max_of_base_candle > one_third_of_leg_out_candle:
+                item['follow_through_with_base'] = 'N'
+                continue
+
+            item['follow_through_with_base'] = 'Y'
+
+
     achievement = data_ohlc.to_dict('records')
 
     # get good demand zone
@@ -246,10 +289,14 @@ for stock in nasdaq100_list:
     # get follow through
     get_stocks_with_follow_through(potential_stocks=potential_stocks)
 
+    # get stocks with proper base candles
+    get_stocks_with_base_before_follow_through(potential_stocks=potential_stocks)
+
     good_stocks.extend(potential_stocks)
+
 
 # normalise into DF
 df = json_normalize(good_stocks)
 
 # get a csv with a follow_through
-df[df['follow_through'] == 'Y'].to_csv('potential_stocks_US.csv', encoding='utf-8', index=False)
+df[df['follow_through_with_base'] == 'Y'].to_csv('potential_stocks_US.csv', encoding='utf-8', index=False)
