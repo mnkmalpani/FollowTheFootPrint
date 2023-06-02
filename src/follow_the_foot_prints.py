@@ -1,3 +1,4 @@
+from logging import Logger
 import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
@@ -14,9 +15,9 @@ class FollowTheFootPrints:
 
         self.nifty100_list = ['INDUSINDBK.NS','HDFCLIFE.NS','EICHERMOT.NS','SBICARD.NS','DABUR.NS','APOLLOHOSP.NS','POWERGRID.NS','DLF.NS','AXISBANK.NS','BAJAJFINSV.NS','PNB.NS', 'KOTAKBANK.NS','ADANIENT.NS','ZOMATO.NS','HINDALCO.NS','JUBLFOOD.NS','ICICIBANK.NS','SBIN.NS','TATAMOTORS.NS','ASIANPAINT.NS', 'BAJFINANCE.NS','MUTHOOTFIN.NS', 'DMART.NS','BOSCHLTD.NS','ONGC.NS','HDFC.NS', 'SRF.NS','ADANIPORTS.NS','BANKBARODA.NS','MARUTI.NS','ACC.NS', 'ITC.NS','HDFCBANK.NS','PAYTM.NS','HDFCAMC.NS', 'RELIANCE.NS','HAVELLS.NS','JSWSTEEL.NS', 'SBILIFE.NS','LICI.NS', 'HINDUNILVR.NS', 'BIOCON.NS','TATACONSUM.NS','NESTLEIND.NS','PIDILITIND.NS','CHOLAFIN.NS','INDIGO.NS','BAJAJ-AUTO.NS','VEDL.NS','PIIND.NS','ADANIGREEN.NS','TITAN.NS','ICICIPRULI.NS','TATASTEEL.NS','MARICO.NS','BRITANNIA.NS','ZYDUSLIFE.NS','M&M.NS','SIEMENS.NS','CIPLA.NS','ULTRACEMCO.NS','ICICIGI.NS','UPL.NS','TATAPOWER.NS','GAIL.NS','COLPAL.NS','BHARTIARTL.NS','MCDOWELL-N.NS','DRREDDY.NS','TORNTPHARM.NS','GODREJCP.NS','NYKAA.NS','PGHH.NS','AMBUJACEM.NS','DIVISLAB.NS','BERGEPAINT.NS','GRASIM.NS','COALINDIA.NS','NAUKRI.NS','WIPRO.NS','IOC.NS','SHREECEM.NS','GLAND.NS','LUPIN.NS','ADANITRANS.NS','HEROMOTOCO.NS','LT.NS','SUNPHARMA.NS','SAIL.NS','BAJAJHLDNG.NS','BPCL.NS','INDUSTOWER.NS','NTPC.NS','TCS.NS','HCLTECH.NS','TECHM.NS','BANDHANBNK.NS','INFY.NS','LTIM.NS', 'HAL.NS']
 
-        self.nifty50_list =["ASML"]
+        self.nifty50_list =["BPCL.NS"]
 
-        self.current_date = datetime.now().strftime("%Y-%m-%d")
+        self.current_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
         self.start_date = (datetime.now() - timedelta(days=time_delta_days)).strftime("%Y-%m-%d")
 
@@ -33,6 +34,8 @@ class FollowTheFootPrints:
         self.good_stocks: List[Dict[str, Any]] = []
 
         self.mode = self._get_mode(interval=interval)
+
+        self.logger = Logger(name=__name__)
 
     def _get_mode(self, interval: str) -> str:
         """_summary_
@@ -237,6 +240,8 @@ class FollowTheFootPrints:
 
             if item['fresh'] == 'N':
                 item['follow_through'] = 'N'
+                item['current_closing_price'] = 'N/A'
+                item['green_leg_out_low_price'] = 'N/A'
                 continue
 
             # timestamp
@@ -258,8 +263,12 @@ class FollowTheFootPrints:
                 and  (third_candle == 'Green') \
                 :
                 item['follow_through'] = 'Y'
+                item['green_leg_out_low_price'] = filtered_df['open'].iloc[0]
+                item['current_closing_price'] = filtered_df['close'].iloc[-1]
             else:
                 item['follow_through'] = 'N'
+                item['current_closing_price'] = 'N/A'
+                item['green_leg_out_low_price'] = 'N/A'
 
     def is_it_base_candle(self, open: float, close: float, low: float, high: float) -> bool:
         """
@@ -281,12 +290,13 @@ class FollowTheFootPrints:
         for item in potential_stocks:
 
             if item['follow_through'] == 'N':
+                item['follow_through_with_base'] = 'N'
                 continue
 
             # timestamp
             stock_time = item['date']
 
-            filtered_df = data_ohlc[data_ohlc['Datetime'] <= stock_time]
+            filtered_df: DataFrame = data_ohlc[data_ohlc['Datetime'] <= stock_time]
 
             if not self.is_it_base_candle(open=filtered_df['open'].shift(1).values.tolist().pop(), close=filtered_df['close'].shift(1).values.tolist().pop(), low=filtered_df['low'].shift(1).values.tolist().pop(), high=filtered_df['high'].shift(1).values.tolist().pop()):
                 item['follow_through_with_base'] = 'N'
@@ -303,7 +313,30 @@ class FollowTheFootPrints:
 
             item['follow_through_with_base'] = 'Y'
 
+    @staticmethod
+    def get_change(current: float, previous: float):
+        if current == previous:
+            return 0
+        try:
+            return (abs(current - previous) / previous) * 100.0
+        except ZeroDivisionError:
+            return float('inf')
 
+    def add_percentage_of_change(self, potential_stocks: List[Dict[str, Any]]):
+        """_summary_
+
+        Args:
+            potential_stocks (List[Dict[str, Any]]): _description_
+        """
+
+        for item in potential_stocks:
+
+            if item["current_closing_price"] == "N/A" or item["green_leg_out_low_price"] == "N/A":
+                item["percentage_of_change"] = "N/A"
+                continue
+
+            _perct_number = FollowTheFootPrints.get_change(current=item["current_closing_price"], previous=item["green_leg_out_low_price"])
+            item["percentage_of_change"] = "{:.1f}".format(_perct_number)
 
 
     def process(self):
@@ -313,6 +346,7 @@ class FollowTheFootPrints:
             _type_: _description_
         """
 
+        print(f"====> Analysis started for date range: `{self.start_date} to `{self.current_date}` <======")
 
         for stock in self.index_list[self.index]:
 
@@ -371,6 +405,8 @@ class FollowTheFootPrints:
             # get stocks with proper base candles
             self.get_stocks_with_base_before_follow_through(potential_stocks=potential_stocks, data_ohlc = data_ohlc)
 
+            self.add_percentage_of_change(potential_stocks=potential_stocks)
+
             # appends to the global list of good stocks for WIT
             self.good_stocks.extend(potential_stocks)
 
@@ -378,14 +414,15 @@ class FollowTheFootPrints:
         df = json_normalize(self.good_stocks)
 
         # get a csv with a follow_through
-        df[df['follow_through_with_base'] == 'Y'].to_csv(f'{self.index}_{self.mode}.csv', encoding='utf-8', index=False)
+        df[df['follow_through_with_base'] == 'Y'].sort_values('percentage_of_change').to_csv(f'{self.index}_{self.mode}.csv', encoding='utf-8', index=False)
 
 if __name__ == "__main__":
 
     # set timedelta to give a range
-    time_delta_days = 60
+    time_delta_days = 90
 
     # default index=nifty100 and interval=1h
+    # ffp_obj = FollowTheFootPrints(time_delta_days=time_delta_days, index="nifty50")
     ffp_obj = FollowTheFootPrints(time_delta_days=time_delta_days)
 
     # start the process
