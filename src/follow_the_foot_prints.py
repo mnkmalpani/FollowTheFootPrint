@@ -7,6 +7,14 @@ from typing import List, Dict, Any, Tuple
 from pandas import DataFrame, json_normalize
 
 
+class IntervalRunNotPossibleException(Exception):
+    """_summary_
+    """
+
+class UnknownIntervalException(Exception):
+    """_summary_
+    """
+
 class FollowTheFootPrints:
 
     def __init__(self, time_delta_days: int, index: str="nifty100", interval: str="1h") -> None:
@@ -50,13 +58,13 @@ class FollowTheFootPrints:
         if 'h' in interval:
             return "hourly"
         elif 'wk' in interval:
-            return "weekly"
+            raise IntervalRunNotPossibleException("Weekly Mode is not possible with the script as of now")
         elif '15min' in interval:
             return "15mins"
         elif 'yr' in interval:
-            return 'yearly'
+            raise IntervalRunNotPossibleException("Weekly Mode is not possible with the script as of now")
 
-        return 'unknow_mode'
+        raise UnknownIntervalException(f"Provided Interval `{interval}` is unknow to the system, Please raise a request to add it!")
 
 
     def calculate_avg_perc_changes(self, data_ohlc: DataFrame):
