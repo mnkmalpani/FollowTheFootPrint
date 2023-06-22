@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import numpy as np
 from typing import List, Dict, Any, Tuple
 from pandas import DataFrame, json_normalize
-
+import traceback
 
 class IntervalRunNotPossibleException(Exception):
     """_summary_
@@ -23,19 +23,15 @@ class FollowTheFootPrints:
 
         self.nifty100_list = ['INDUSINDBK.NS','HDFCLIFE.NS','EICHERMOT.NS','SBICARD.NS','DABUR.NS','APOLLOHOSP.NS','POWERGRID.NS','DLF.NS','AXISBANK.NS','BAJAJFINSV.NS','PNB.NS', 'KOTAKBANK.NS','ADANIENT.NS','ZOMATO.NS','HINDALCO.NS','JUBLFOOD.NS','ICICIBANK.NS','SBIN.NS','TATAMOTORS.NS','ASIANPAINT.NS', 'BAJFINANCE.NS','MUTHOOTFIN.NS', 'DMART.NS','BOSCHLTD.NS','ONGC.NS','HDFC.NS', 'SRF.NS','ADANIPORTS.NS','BANKBARODA.NS','MARUTI.NS','ACC.NS', 'ITC.NS','HDFCBANK.NS','PAYTM.NS','HDFCAMC.NS', 'RELIANCE.NS','HAVELLS.NS','JSWSTEEL.NS', 'SBILIFE.NS','LICI.NS', 'HINDUNILVR.NS', 'BIOCON.NS','TATACONSUM.NS','NESTLEIND.NS','PIDILITIND.NS','CHOLAFIN.NS','INDIGO.NS','BAJAJ-AUTO.NS','VEDL.NS','PIIND.NS','ADANIGREEN.NS','TITAN.NS','ICICIPRULI.NS','TATASTEEL.NS','MARICO.NS','BRITANNIA.NS','ZYDUSLIFE.NS','M&M.NS','SIEMENS.NS','CIPLA.NS','ULTRACEMCO.NS','ICICIGI.NS','UPL.NS','TATAPOWER.NS','GAIL.NS','COLPAL.NS','BHARTIARTL.NS','MCDOWELL-N.NS','DRREDDY.NS','TORNTPHARM.NS','GODREJCP.NS','NYKAA.NS','PGHH.NS','AMBUJACEM.NS','DIVISLAB.NS','BERGEPAINT.NS','GRASIM.NS','COALINDIA.NS','NAUKRI.NS','WIPRO.NS','IOC.NS','SHREECEM.NS','GLAND.NS','LUPIN.NS','ADANITRANS.NS','HEROMOTOCO.NS','LT.NS','SUNPHARMA.NS','SAIL.NS','BAJAJHLDNG.NS','BPCL.NS','INDUSTOWER.NS','NTPC.NS','TCS.NS','HCLTECH.NS','TECHM.NS','BANDHANBNK.NS','INFY.NS','LTIM.NS', 'HAL.NS']
 
-        self.nifty200_list = ['NYKAA', 'ZOMATO', 'PFC', 'HINDALCO', 'HEROMOTOCO', 'APOLLOHOSP', 'ASTRAL', 'JINDALSTEL', 'INDIANB', 'HAL', 'DLF', 'HONAUT', 'TRENT', 'RECLTD', 'MPHASIS', 'TATACOMM', 'POLYCAB', 'TVSMOTOR', 'NMDC', 'ABB', 'TATASTEEL', 'OBEROIRLTY', 'PAYTM', 'MARUTI', 'M&M', 'JSWSTEEL', 'AMBUJACEM', 'GODREJPROP', 'MOTHERSON', 'LAURUSLABS', 'SAIL', 'INDIGO', 'DRREDDY', 'TTML', 'SUNPHARMA', 'SRF', 'M&MFIN', 'ABBOTINDIA', 'DIXON', 'BHEL', 'LT', 'BHARTIARTL', 'CANBK', 'IPCALAB', 'PNB', 'CONCOR', 'NAUKRI', 'TITAN', 'PERSISTENT', 'LTTS', 'BANKBARODA', 'INDUSTOWER', 'POONAWALLA', 'ZYDUSLIFE', 'LUPIN', 'UPL', 'ACC', 'COROMANDEL', 'BOSCHLTD', 'GODREJCP', 'HDFCAMC', 'VBL', 'ITC', 'LALPATHLAB', 'POWERGRID', 'BAJAJ-AUTO', 'ZEEL', 'IDEA', 'SBICARD', 'NESTLEIND', 'TATAELXSI', 'ONGC', 'SBIN', 'SUNTV', 'RAMCOCEM', 'INDUSINDBK', 'FEDERALBNK', 'NAVINFLUOR', 'PGHH', 'VEDL', 'DMART', 'BRITANNIA', 'COFORGE', 'DEEPAKNTR', 'LICHSGFIN', 'HINDUNILVR', 'ABCAPITAL', 'PEL', 'GRASIM', 'TORNTPOWER', 'AXISBANK', 'L&TFH', 'AUBANK', 'UNIONBANK', 'SHRIRAMFIN', 'ADANIPORTS', 'AUROPHARMA', 'ICICIGI', 'SIEMENS', 'LTIM', 'BAJAJFINSV', 'MSUMI', 'SONACOMS', 'ADANIPOWER', 'HINDZINC', 'TRIDENT', 'YESBANK', 'JUBLFOOD', 'DABUR', 'OFSS', 'BERGEPAINT', 'KOTAKBANK', 'PRESTIGE', 'HAVELLS', 'TATACONSUM', 'IDFCFIRSTB', 'BEL', 'CUMMINSIND', 'COALINDIA', 'HDFCBANK', 'TATAPOWER', 'INDHOTEL', 'BANKINDIA', 'LICI', 'ICICIBANK', 'APOLLOTYRE', 'CIPLA', 'BAJAJHLDNG', 'TORNTPHARM', 'DALBHARAT', 'MCDOWELL-N', 'TATAMOTORS', 'ULTRACEMCO', 'COLPAL', 'DIVISLAB', 'ALKEM', 'TATACHEM', 'DEVYANI', 'TECHM', 'NTPC', 'EICHERMOT', 'BALKRISIND', 'INFY', 'HDFC', 'JSWENERGY', 'BAJFINANCE', 'PETRONET', 'CHOLAFIN', 'TIINDIA', 'ASIANPAINT', 'MAXHEALTH', 'IRFC', 'RELIANCE', 'SBILIFE', 'CROMPTON', 'HCLTECH', 'WIPRO', 'NHPC', 'ABFRL', 'SHREECEM', 'MUTHOOTFIN', 'ESCORTS', 'TCS', 'GAIL', 'ASHOKLEY', 'HINDPETRO', 'VOLTAS', 'PIDILITIND', 'IOC', 'IRCTC', 'FORTIS', 'WHIRLPOOL', 'UBL', 'SYNGENE', 'BHARATFORG', 'GLAND', 'AWL', 'HDFCLIFE', 'PIIND', 'DELHIVERY', 'BATAINDIA', 'BANDHANBNK', 'ADANIGREEN', 'ICICIPRULI', 'MARICO', 'MRF', 'BPCL', 'FLUOROCHEM', 'POLICYBZR', 'PAGEIND', 'PATANJALI', 'MFSL', 'OIL', 'BIOCON', 'ADANIENT', 'CGPOWER', 'GUJGASLTD', 'ADANITRANS', 'IGL', 'ATGL']
+        self.nifty50_list =["ICICIGI.NS"]
 
-        self.nifty50_list =["INFY.NS"]
-
-        # self.current_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
-        self.current_date = (datetime.now()).strftime("%Y-%m-%d")
+        self.current_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
         self.start_date = (datetime.now() - timedelta(days=time_delta_days)).strftime("%Y-%m-%d")
 
         self.index_list = {
             "nasdaq100": self.nasdaq100_list,
             "nifty100": self.nifty100_list,
-            "nifty200": self.nifty100_list,
             "nifty50": self.nifty50_list
         }
 
@@ -64,8 +60,8 @@ class FollowTheFootPrints:
         elif 'wk' in interval:
             # raise IntervalRunNotPossibleException("Weekly Mode is not possible with the script as of now")
             return "weekly"
-        elif '15min' in interval or '15m' in interval:
-            return "15m"
+        elif '15min' in interval:
+            return "15mins"
         elif 'yr' in interval:
             raise IntervalRunNotPossibleException("Weekly Mode is not possible with the script as of now")
 
@@ -92,67 +88,30 @@ class FollowTheFootPrints:
         """
 
 
-        # resistance for situation 1 when pivot is just bigger than all others taken next 4 candles
+        # resistance for situation 1
         data_ohlc.loc[ ( data_ohlc['max_value'] >= data_ohlc['max_value'].shift(1) ) & ( data_ohlc['max_value'].shift(1) > data_ohlc['max_value'].shift(2)) & ( data_ohlc['max_value'].shift(2) > data_ohlc['max_value'].shift(3)) & ( data_ohlc['max_value'].shift(3) > data_ohlc['max_value'].shift(4))
                     & ( data_ohlc['max_value'] >= data_ohlc['max_value'].shift(-1)) & ( data_ohlc['max_value'].shift(-1) > data_ohlc['max_value'].shift(-2)) & ( data_ohlc['max_value'].shift(-2) > data_ohlc['max_value'].shift(-3)) & ( data_ohlc['max_value'].shift(-3) > data_ohlc['max_value'].shift(-4))
                 , 'pivot'] = 'resistance'
 
-        # resistance for situation 2 when pivot is just bigger than all others taken next 5 candles
+        # resistance for situation 2 when pivot is just bigger than all others, TODO: added more candles
         data_ohlc.loc[ ( data_ohlc['max_value'] >= data_ohlc['max_value'].shift(1) ) & ( data_ohlc['max_value'] > data_ohlc['max_value'].shift(2)) & ( data_ohlc['max_value'] > data_ohlc['max_value'].shift(3)) & ( data_ohlc['max_value'] > data_ohlc['max_value'].shift(4)) & ( data_ohlc['max_value'] > data_ohlc['max_value'].shift(5))
                     & ( data_ohlc['max_value'] >= data_ohlc['max_value'].shift(-1)) & ( data_ohlc['max_value'] > data_ohlc['max_value'].shift(-2)) & ( data_ohlc['max_value'] > data_ohlc['max_value'].shift(-3)) & ( data_ohlc['max_value'] > data_ohlc['max_value'].shift(-4)) & ( data_ohlc['max_value'] > data_ohlc['max_value'].shift(-5))
                 , 'pivot'] = 'resistance'
-
-        # resistance for situation 1 when pivot is just bigger than all others taken next 4 candles
-        data_ohlc.loc[ ( data_ohlc['max_value'] >= data_ohlc['max_value'].shift(1) ) & ( data_ohlc['max_value'].shift(1) > data_ohlc['max_value'].shift(2)) & ( data_ohlc['max_value'].shift(2) > data_ohlc['max_value'].shift(3)) & ( data_ohlc['max_value'].shift(3) > data_ohlc['max_value'].shift(4))
-                    & ( data_ohlc['max_value'] >= data_ohlc['max_value'].shift(-1)) & ( data_ohlc['max_value'].shift(-1) > data_ohlc['max_value'].shift(-2)) & ( data_ohlc['max_value'].shift(-2) > data_ohlc['max_value'].shift(-3)) & ( data_ohlc['max_value'].shift(-3) > data_ohlc['max_value'].shift(-4))
-                , 'resistance'] = 'Y'
-
-        # resistance for situation 2 when pivot is just bigger than all others taken next 5 candles
-        data_ohlc.loc[ ( data_ohlc['max_value'] >= data_ohlc['max_value'].shift(1) ) & ( data_ohlc['max_value'] >= data_ohlc['max_value'].shift(2)) & ( data_ohlc['max_value'] >= data_ohlc['max_value'].shift(3)) & ( data_ohlc['max_value'] >= data_ohlc['max_value'].shift(4)) & ( data_ohlc['max_value'] > data_ohlc['max_value'].shift(5))
-                    & ( data_ohlc['max_value'] >= data_ohlc['max_value'].shift(-1)) & ( data_ohlc['max_value'] >= data_ohlc['max_value'].shift(-2)) & ( data_ohlc['max_value'] >= data_ohlc['max_value'].shift(-3)) & ( data_ohlc['max_value'] >= data_ohlc['max_value'].shift(-4)) & ( data_ohlc['max_value'] > data_ohlc['max_value'].shift(-5))
-                , 'resistance'] = 'Y'
 
     def mark_support_points(self, data_ohlc: DataFrame):
         """_summary_
         """
 
 
-        # support for situation 1 when pivot is just smaller than all others
+        # support for situation 1
         data_ohlc.loc[ ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(1) ) & ( data_ohlc['min_value'].shift(1) < data_ohlc['min_value'].shift(2)) & ( data_ohlc['min_value'].shift(2) < data_ohlc['min_value'].shift(3)) & ( data_ohlc['min_value'].shift(3) < data_ohlc['min_value'].shift(4))
                     & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(-1)) & ( data_ohlc['min_value'].shift(-1) < data_ohlc['min_value'].shift(-2)) & ( data_ohlc['min_value'].shift(-2) < data_ohlc['min_value'].shift(-3)) & ( data_ohlc['min_value'].shift(-3) < data_ohlc['min_value'].shift(-4))
                 , 'pivot'] = 'support'
 
-        # support for situation 1 when pivot could be smaller or equal to others base candles upto 4 base candle
-        data_ohlc.loc[ ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(1) ) & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(2)) & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(3)) & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(4))
-                    & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(-1)) & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(-2)) & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(-3)) & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(-4))
-                , 'pivot'] = 'support'
-
         # support for situation 1 when pivot is just smaller than all others
-        data_ohlc.loc[ ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(1) ) & ( data_ohlc['min_value'].shift(1) < data_ohlc['min_value'].shift(2)) & ( data_ohlc['min_value'].shift(2) < data_ohlc['min_value'].shift(3)) & ( data_ohlc['min_value'].shift(3) < data_ohlc['min_value'].shift(4))
-                    & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(-1)) & ( data_ohlc['min_value'].shift(-1) < data_ohlc['min_value'].shift(-2)) & ( data_ohlc['min_value'].shift(-2) < data_ohlc['min_value'].shift(-3)) & ( data_ohlc['min_value'].shift(-3) < data_ohlc['min_value'].shift(-4))
-                , 'support'] = 'Y'
-
-        # support for situation 1 when pivot could be smaller or equal to others base candles upto 4 base candle
-        data_ohlc.loc[ ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(1) ) & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(2)) & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(3)) & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(4))
-                    & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(-1)) & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(-2)) & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(-3)) & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(-4))
-                , 'support'] = 'Y'
-
-
-
-    # def identify_possible_dz(self, data_ohlc: DataFrame):
-    #     """_summary_
-    #     """
-
-
-    #     # TODO: added more candles and more condition
-    #     data_ohlc.loc[ (data_ohlc['leg']=='green_leg_out') &
-    #             ((data_ohlc['pivot'].shift(1) == 'support') | (data_ohlc['pivot'].shift(2) == 'support') | (data_ohlc['pivot'].shift(3) == 'support') | (data_ohlc['pivot'].shift(4) == 'support') | (data_ohlc['pivot'].shift(5) == 'support') | (data_ohlc['pivot'].shift(6) == 'support'))
-    #             & ((data_ohlc['pivot'].shift(1) != 'resistance') & (data_ohlc['pivot'].shift(2) != 'resistance') & (data_ohlc['pivot'].shift(3) != 'resistance') & (data_ohlc['pivot'].shift(4) != 'resistance') & (data_ohlc['pivot'].shift(5) != 'resistance') & (data_ohlc['pivot'].shift(6) != 'resistance'))
-    #             & ((data_ohlc['leg'].shift(1) != 'red_leg_in') & (data_ohlc['leg'].shift(2) != 'red_leg_in') & (data_ohlc['leg'].shift(3) != 'red_leg_in') & (data_ohlc['leg'].shift(4) != 'red_leg_in') & (data_ohlc['leg'].shift(5) != 'red_leg_in') & (data_ohlc['leg'].shift(6) != 'red_leg_in'))
-    #             , 'dz'] = 'Y'
-
-    #     # TODO: added new condition
-    #     data_ohlc.loc[(data_ohlc['dz'] == 'Y') & ((data_ohlc['dz'].shift(1) == 'Y') |  (data_ohlc['dz'].shift(2) == 'Y')), 'dz'] = float("NaN")
+        data_ohlc.loc[ ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(1) ) & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(2)) & ( data_ohlc['min_value'] < data_ohlc['min_value'].shift(3)) & ( data_ohlc['min_value'] < data_ohlc['min_value'].shift(4))
+                    & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(-1)) & ( data_ohlc['min_value'] <= data_ohlc['min_value'].shift(-2)) & ( data_ohlc['min_value'] < data_ohlc['min_value'].shift(-3)) & ( data_ohlc['min_value'] < data_ohlc['min_value'].shift(-4))
+                , 'pivot'] = 'support'
 
     def identify_possible_dz(self, data_ohlc: DataFrame):
         """_summary_
@@ -161,8 +120,8 @@ class FollowTheFootPrints:
 
         # TODO: added more candles and more condition
         data_ohlc.loc[ (data_ohlc['leg']=='green_leg_out') &
-                ((data_ohlc['support'].shift(1) == 'Y') | (data_ohlc['support'].shift(2) == 'Y') | (data_ohlc['support'].shift(3) == 'Y') | (data_ohlc['support'].shift(4) == 'Y') | (data_ohlc['support'].shift(5) == 'Y') | (data_ohlc['support'].shift(6) == 'Y'))
-                & ((data_ohlc['resistance'].shift(1) != 'Y') & (data_ohlc['resistance'].shift(2) != 'Y') & (data_ohlc['resistance'].shift(3) != 'Y') & (data_ohlc['resistance'].shift(4) != 'Y') & (data_ohlc['resistance'].shift(5) != 'Y') & (data_ohlc['resistance'].shift(6) != 'Y'))
+                ((data_ohlc['pivot'].shift(1) == 'support') | (data_ohlc['pivot'].shift(2) == 'support') | (data_ohlc['pivot'].shift(3) == 'support') | (data_ohlc['pivot'].shift(4) == 'support') | (data_ohlc['pivot'].shift(5) == 'support') | (data_ohlc['pivot'].shift(6) == 'support'))
+                & ((data_ohlc['pivot'].shift(1) != 'resistance') & (data_ohlc['pivot'].shift(2) != 'resistance') & (data_ohlc['pivot'].shift(3) != 'resistance') & (data_ohlc['pivot'].shift(4) != 'resistance') & (data_ohlc['pivot'].shift(5) != 'resistance') & (data_ohlc['pivot'].shift(6) != 'resistance'))
                 & ((data_ohlc['leg'].shift(1) != 'red_leg_in') & (data_ohlc['leg'].shift(2) != 'red_leg_in') & (data_ohlc['leg'].shift(3) != 'red_leg_in') & (data_ohlc['leg'].shift(4) != 'red_leg_in') & (data_ohlc['leg'].shift(5) != 'red_leg_in') & (data_ohlc['leg'].shift(6) != 'red_leg_in'))
                 , 'dz'] = 'Y'
 
@@ -176,10 +135,7 @@ class FollowTheFootPrints:
         dz_points = []
         for item in achievement:
 
-            # if item['pivot'] == 'resistance':
-            #     dz_points.append((item['Datetime'], item['max_value']))
-
-            if item['resistance'] == 'Y':
+            if item['pivot'] == 'resistance':
                 dz_points.append((item['Datetime'], item['max_value']))
 
             # if item['pivot'] == 'support':
@@ -291,11 +247,9 @@ class FollowTheFootPrints:
 
         for item in potential_stocks:
 
-            if item['fresh'] == 'N':
-                item['follow_through'] = 'N'
-                item['current_closing_price'] = 'N/A'
-                item['green_leg_out_low_price'] = 'N/A'
-                continue
+            # if item['fresh'] == 'N':
+            #     item['follow_through'] = 'N'
+            #     continue
 
             # timestamp
             stock_time = item['date']
@@ -310,28 +264,9 @@ class FollowTheFootPrints:
             first_candle = filtered_df['candle_colour'].shift(1).values[2] if len(filtered_df['candle_colour'].shift(1).values) >= 3 else None
             second_candle = filtered_df['candle_colour'].shift(2).values[4] if len(filtered_df['candle_colour'].shift(2).values) >= 5 else None
             third_candle = filtered_df['candle_colour'].shift(3).values[6] if len(filtered_df['candle_colour'].shift(3).values) >= 7 else None
-            forth_candle = filtered_df['candle_colour'].shift(4).values[8] if len(filtered_df['candle_colour'].shift(4).values) >= 9 else None
 
             if (first_candle == 'Green') \
-                and  (second_candle == 'Green') \
-                and  (third_candle == 'Green') \
-                :
-                item['follow_through'] = 'Y'
-                item['green_leg_out_low_price'] = filtered_df['open'].iloc[0]
-                item['current_closing_price'] = filtered_df['close'].iloc[-1]
-            elif (first_candle == 'Green') \
-                and  (second_candle == 'Red') \
-                and  (third_candle == 'Green') \
-                and  (forth_candle == 'Green') \
-                :
-                item['follow_through'] = 'Y'
-                item['green_leg_out_low_price'] = filtered_df['open'].iloc[0]
-                item['current_closing_price'] = filtered_df['close'].iloc[-1]
-            elif (first_candle == 'Green') \
-                and  (second_candle == 'Green') \
-                and  (third_candle == 'Red') \
-                and  (forth_candle == 'Green') \
-                :
+                and  ((second_candle == 'Green') or  (third_candle == 'Green')):
                 item['follow_through'] = 'Y'
                 item['green_leg_out_low_price'] = filtered_df['open'].iloc[0]
                 item['current_closing_price'] = filtered_df['close'].iloc[-1]
@@ -464,9 +399,6 @@ class FollowTheFootPrints:
 
                 self.identify_possible_dz(data_ohlc = data_ohlc)
 
-                # 2023-03-24 09:15:00+05:30
-                # print(data_ohlc[data_ohlc['Datetime'] >= "2023-06-09 00:00:00+05:30"].head(50))
-
                 # data is prepared, let's calculate
 
                 fresh_zone_helper_list: List[Tuple[str, str, str]] = []
@@ -484,37 +416,33 @@ class FollowTheFootPrints:
                 # get follow through
                 self.get_stocks_with_follow_through(potential_stocks=potential_stocks, data_ohlc = data_ohlc)
 
-                # get stocks with proper base candles
-                self.get_stocks_with_base_before_follow_through(potential_stocks=potential_stocks, data_ohlc = data_ohlc)
+                # # get stocks with proper base candles
+                # self.get_stocks_with_base_before_follow_through(potential_stocks=potential_stocks, data_ohlc = data_ohlc)
 
                 self.add_percentage_of_change(potential_stocks=potential_stocks)
 
                 # appends to the global list of good stocks for WIT
                 self.good_stocks.extend(potential_stocks)
 
-            except Exception as ex:
-                print(f" Exception raised for stock {stock}, with details {ex}")
+            except Exception:
+                print(f" Exception raised for stock {stock}, with details {traceback.print_exc()}")
                 continue
 
         # normalise into DF
         df = json_normalize(self.good_stocks)
 
         # get a csv with a follow_through
-        # df.sort_values('percentage_of_change').to_csv(f'{self.index}_{self.mode}.csv', encoding='utf-8', index=False)
-        df[df['follow_through_with_base'] == 'Y'].sort_values('percentage_of_change').to_csv(f'{self.index}_{self.mode}.csv', encoding='utf-8', index=False)
+        df[df['follow_through'] == 'Y'].sort_values('percentage_of_change').to_csv(f'{self.index}_{self.mode}.csv', encoding='utf-8', index=False)
 
 if __name__ == "__main__":
 
     # set timedelta to give a range
-    time_delta_days = 90
+    time_delta_days = 1000
 
     # default index=nifty100 and interval=1h
-    # ffp_obj = FollowTheFootPrints(time_delta_days=time_delta_days, index="nifty200")
-    # ffp_obj = FollowTheFootPrints(time_delta_days=time_delta_days, index="nasdaq100")
-    # ffp_obj = FollowTheFootPrints(time_delta_days=time_delta_days, interval="1wk")
-    # ffp_obj = FollowTheFootPrints(time_delta_days=time_delta_days, interval='15m')
-    # ffp_obj = FollowTheFootPrints(index="nifty50", time_delta_days=time_delta_days)
-    ffp_obj = FollowTheFootPrints(time_delta_days=time_delta_days)
+    # ffp_obj = FollowTheFootPrints(time_delta_days=time_delta_days, index="nifty50")
+    ffp_obj = FollowTheFootPrints(time_delta_days=time_delta_days, interval="1wk")
+    # ffp_obj = FollowTheFootPrints(time_delta_days=time_delta_days)
 
     # start the process
     ffp_obj.process()
