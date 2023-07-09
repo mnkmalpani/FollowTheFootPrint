@@ -23,7 +23,7 @@ class FollowTheFootPrints:
 
         self.nifty100_list = ['INDUSINDBK.NS','HDFCLIFE.NS','EICHERMOT.NS','SBICARD.NS','DABUR.NS','APOLLOHOSP.NS','POWERGRID.NS','DLF.NS','AXISBANK.NS','BAJAJFINSV.NS','PNB.NS', 'KOTAKBANK.NS','ADANIENT.NS','ZOMATO.NS','HINDALCO.NS','JUBLFOOD.NS','ICICIBANK.NS','SBIN.NS','TATAMOTORS.NS','ASIANPAINT.NS', 'BAJFINANCE.NS','MUTHOOTFIN.NS', 'DMART.NS','BOSCHLTD.NS','ONGC.NS','HDFC.NS', 'SRF.NS','ADANIPORTS.NS','BANKBARODA.NS','MARUTI.NS','ACC.NS', 'ITC.NS','HDFCBANK.NS','PAYTM.NS','HDFCAMC.NS', 'RELIANCE.NS','HAVELLS.NS','JSWSTEEL.NS', 'SBILIFE.NS','LICI.NS', 'HINDUNILVR.NS', 'BIOCON.NS','TATACONSUM.NS','NESTLEIND.NS','PIDILITIND.NS','CHOLAFIN.NS','INDIGO.NS','BAJAJ-AUTO.NS','VEDL.NS','PIIND.NS','ADANIGREEN.NS','TITAN.NS','ICICIPRULI.NS','TATASTEEL.NS','MARICO.NS','BRITANNIA.NS','ZYDUSLIFE.NS','M&M.NS','SIEMENS.NS','CIPLA.NS','ULTRACEMCO.NS','ICICIGI.NS','UPL.NS','TATAPOWER.NS','GAIL.NS','COLPAL.NS','BHARTIARTL.NS','MCDOWELL-N.NS','DRREDDY.NS','TORNTPHARM.NS','GODREJCP.NS','NYKAA.NS','PGHH.NS','AMBUJACEM.NS','DIVISLAB.NS','BERGEPAINT.NS','GRASIM.NS','COALINDIA.NS','NAUKRI.NS','WIPRO.NS','IOC.NS','SHREECEM.NS','GLAND.NS','LUPIN.NS','ADANITRANS.NS','HEROMOTOCO.NS','LT.NS','SUNPHARMA.NS','SAIL.NS','BAJAJHLDNG.NS','BPCL.NS','INDUSTOWER.NS','NTPC.NS','TCS.NS','HCLTECH.NS','TECHM.NS','BANDHANBNK.NS','INFY.NS','LTIM.NS', 'HAL.NS']
 
-        self.nifty50_list =["ICICIGI.NS"]
+        self.nifty50_list =["DABUR.NS"]
 
         self.current_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
@@ -72,16 +72,16 @@ class FollowTheFootPrints:
         """_summary_
         """
 
-        data_ohlc['avg_%_green'] = data_ohlc.loc[data_ohlc['candle_colour'] == "Green", '%'].mean()
-        data_ohlc['avg_%_red'] = data_ohlc.loc[data_ohlc['candle_colour'] == "Red", '%'].mean()
-        data_ohlc['avg_%'] = data_ohlc.loc[:, '%'].mean()
+        data_ohlc['avg_%_green'] = data_ohlc.loc[data_ohlc['%_of_change'] >= 0.0, '%_of_change'].mean()
+        data_ohlc['avg_%_red'] = data_ohlc.loc[data_ohlc['%_of_change'] < 0, '%_of_change'].mean()
+        data_ohlc['avg_%'] = data_ohlc.loc[:, '%_of_change'].mean()
 
     def mark_leg_candle(self, data_ohlc: DataFrame):
         """_summary_
         """
 
-        data_ohlc.loc[(data_ohlc['%'] / data_ohlc['avg_%_green']) >= 2.2, 'leg'] = 'green_leg_out'
-        data_ohlc.loc[(data_ohlc['%'] / data_ohlc['avg_%_red']) >= 2.0, 'leg'] = 'red_leg_in'
+        data_ohlc.loc[(data_ohlc['%_of_change'] / data_ohlc['avg_%_green']) >= 1.7, 'leg'] = 'green_leg_out'
+        data_ohlc.loc[(data_ohlc['%_of_change'] / data_ohlc['avg_%_red']) >= 2.0, 'leg'] = 'red_leg_in'
 
     def mark_resistance_points(self, data_ohlc: DataFrame):
         """_summary_
@@ -264,9 +264,28 @@ class FollowTheFootPrints:
             first_candle = filtered_df['candle_colour'].shift(1).values[2] if len(filtered_df['candle_colour'].shift(1).values) >= 3 else None
             second_candle = filtered_df['candle_colour'].shift(2).values[4] if len(filtered_df['candle_colour'].shift(2).values) >= 5 else None
             third_candle = filtered_df['candle_colour'].shift(3).values[6] if len(filtered_df['candle_colour'].shift(3).values) >= 7 else None
+            forth_candle = filtered_df['candle_colour'].shift(4).values[8] if len(filtered_df['candle_colour'].shift(4).values) >= 9 else None
 
             if (first_candle == 'Green') \
-                and  ((second_candle == 'Green') or  (third_candle == 'Green')):
+                and  (second_candle == 'Green') \
+                and  (third_candle == 'Green') \
+                :
+                item['follow_through'] = 'Y'
+                item['green_leg_out_low_price'] = filtered_df['open'].iloc[0]
+                item['current_closing_price'] = filtered_df['close'].iloc[-1]
+            elif (first_candle == 'Green') \
+                and  (second_candle == 'Red') \
+                and  (third_candle == 'Green') \
+                and  (forth_candle == 'Green') \
+                :
+                item['follow_through'] = 'Y'
+                item['green_leg_out_low_price'] = filtered_df['open'].iloc[0]
+                item['current_closing_price'] = filtered_df['close'].iloc[-1]
+            elif (first_candle == 'Green') \
+                and  (second_candle == 'Green') \
+                and  (third_candle == 'Red') \
+                and  (forth_candle == 'Green') \
+                :
                 item['follow_through'] = 'Y'
                 item['green_leg_out_low_price'] = filtered_df['open'].iloc[0]
                 item['current_closing_price'] = filtered_df['close'].iloc[-1]
@@ -323,7 +342,7 @@ class FollowTheFootPrints:
         if current == previous:
             return 0
         try:
-            return (abs(current - previous) / previous) * 100.0
+            return ((current - previous) / previous) * 100.0
         except ZeroDivisionError:
             return float('inf')
 
@@ -337,7 +356,7 @@ class FollowTheFootPrints:
         for item in potential_stocks:
 
             if item["current_closing_price"] == "N/A" or item["green_leg_out_low_price"] == "N/A":
-                item["percentage_of_change"] = "N/A"
+                item["percentage_of_change"] = -0.0
                 continue
 
             _perct_number = FollowTheFootPrints.get_change(current=item["current_closing_price"], previous=item["green_leg_out_low_price"])
@@ -384,7 +403,7 @@ class FollowTheFootPrints:
                 data_ohlc["close"] = pd.to_numeric(data_ohlc["close"])
 
                 # adds % change column
-                data_ohlc['%'] = ( ( data_ohlc['close'] - data_ohlc['close'].shift(1) ) / data_ohlc['close'].shift()) * 100
+                data_ohlc['%_of_change'] = ( ( data_ohlc['close'] - data_ohlc['close'].shift(1) ) / data_ohlc['close'].shift(1)) * 100
 
                 self.calculate_avg_perc_changes(data_ohlc = data_ohlc)
 
@@ -399,6 +418,8 @@ class FollowTheFootPrints:
 
                 self.identify_possible_dz(data_ohlc = data_ohlc)
 
+                # 2023-03-24 09:15:00+05:30
+                # print(data_ohlc[data_ohlc['Datetime'] >= "2021-03-22"].head(50))
                 # data is prepared, let's calculate
 
                 fresh_zone_helper_list: List[Tuple[str, str, str]] = []
@@ -413,7 +434,7 @@ class FollowTheFootPrints:
                 # get fresh zone
                 self.get_fresh_zone(potential_stocks=potential_stocks, fresh_zone_helper_list=fresh_zone_helper_list, data_ohlc=data_ohlc)
 
-                # get follow through
+                # get follow through, not happening for fresh zone only so above method is just to make the code working
                 self.get_stocks_with_follow_through(potential_stocks=potential_stocks, data_ohlc = data_ohlc)
 
                 # # get stocks with proper base candles
@@ -432,7 +453,7 @@ class FollowTheFootPrints:
         df = json_normalize(self.good_stocks)
 
         # get a csv with a follow_through
-        df[df['follow_through'] == 'Y'].sort_values('percentage_of_change').to_csv(f'{self.index}_{self.mode}.csv', encoding='utf-8', index=False)
+        df[(df['follow_through'] == 'Y') & ~(df['percentage_of_change'].str.startswith('-', na=False))].sort_values('percentage_of_change').to_csv(f'{self.index}_{self.mode}.csv', encoding='utf-8', index=False)
 
 if __name__ == "__main__":
 
@@ -441,8 +462,8 @@ if __name__ == "__main__":
 
     # default index=nifty100 and interval=1h
     # ffp_obj = FollowTheFootPrints(time_delta_days=time_delta_days, index="nifty50")
+    # ffp_obj = FollowTheFootPrints(index="nifty50", time_delta_days=time_delta_days, interval="1wk")
     ffp_obj = FollowTheFootPrints(time_delta_days=time_delta_days, interval="1wk")
-    # ffp_obj = FollowTheFootPrints(time_delta_days=time_delta_days)
 
     # start the process
     ffp_obj.process()
