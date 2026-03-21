@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments / UV
+.venv/
+venv/
+env/
+bin/
+lib/
+include/
+pyvenv.cfg
+
+# UV
+.uv/
+uv.lock
+
+# Secrets (never commit)
+.env
+
+# Output artifacts
+*.csv
+!potential_stocks_*.csv.example
+
+# Test / coverage
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.cache/
+
+# IDE
+.cursor/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
