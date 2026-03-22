@@ -33,6 +33,11 @@ _DATE_INDEX_INTERVALS = {"1wk", "1d"}
 _GREEN_LEG_THRESHOLD = 1.7
 _RED_LEG_THRESHOLD = 2.0
 
+# Backtest bounce detection thresholds.
+_BOUNCE_MIN_PCT = 5.0
+_WEEKS_1_MONTH = 4
+_WEEKS_2_MONTHS = 8
+
 
 class FollowTheFootPrints:
     """Scans a stock index for demand zones with follow-through confirmation.
@@ -269,12 +274,15 @@ class FollowTheFootPrints:
             "dz",
         ] = "Y"
 
-        # Remove duplicate consecutive DZ marks – keep only the first.
+        # Remove duplicate consecutive DZ marks – keep only the last.
+        # Keeping the last leg-out ensures the prior candles (base) are the
+        # consolidation weeks immediately before the final breakout, not
+        # earlier leg-outs that are still inside the base.
         data_ohlc.loc[
             (data_ohlc["dz"] == "Y")
             & (
-                (data_ohlc["dz"].shift(1) == "Y")
-                | (data_ohlc["dz"].shift(2) == "Y")
+                (data_ohlc["dz"].shift(-1) == "Y")
+                | (data_ohlc["dz"].shift(-2) == "Y")
             ),
             "dz",
         ] = float("NaN")
@@ -404,6 +412,38 @@ class FollowTheFootPrints:
                 item["follow_through"] = "Y"
                 item["green_leg_out_low_price"] = float(filtered_df["open"].iloc[0])
                 item["current_closing_price"] = float(filtered_df["close"].iloc[-1])
+                # Demand zone: examine up to 3 candles before the leg-out.
+                # _find_base_candle() picks the representative candle (smallest range
+                # that passes is_it_base_candle). Its body top becomes the zone ceiling.
+                # Zone floor = min low of ALL 3 prior candles so the full consolidation
+                # area (including lower wicks from any of the 3 weeks) is captured.
+                prior = data_ohlc[data_ohlc["Datetime"] < stock_time].tail(3)
+                base_row = self._find_base_candle(prior)
+                if base_row is not None:
+                    bh = float(base_row["high"])
+                    bo = float(base_row["open"])
+                    bc = float(base_row["close"])
+                    full_range = abs(bh - float(base_row["low"]))
+                    body_pct = round(abs(bc - bo) / full_range * 100, 1) if full_range > 0 else 0.0
+                    base_dt = pd.Timestamp(base_row["Datetime"])
+                    if self.interval == "1wk":
+                        # Normalize to Monday so it matches TradingView's weekly label
+                        # (TradingView always uses calendar Monday; yfinance may use
+                        # the first actual trading day on holiday weeks).
+                        monday = base_dt - pd.Timedelta(days=base_dt.weekday())
+                        item["base_candle_date"] = monday.date()
+                    else:
+                        item["base_candle_date"] = base_dt
+                    # Zone top = body max of representative candle (excluding upper wick).
+                    # Zone bottom = min low across all prior candidates (full consolidation).
+                    item["base_candle_low"] = float(prior["low"].min())
+                    item["base_candle_high"] = max(bo, bc)
+                    item["base_candle_body_pct"] = body_pct
+                else:
+                    item["base_candle_date"] = float("nan")
+                    item["base_candle_low"] = float("nan")
+                    item["base_candle_high"] = float("nan")
+                    item["base_candle_body_pct"] = float("nan")
             else:
                 item["follow_through"] = "N"
                 item["green_leg_out_low_price"] = float("nan")
@@ -411,13 +451,56 @@ class FollowTheFootPrints:
 
     @staticmethod
     def is_it_base_candle(open: float, close: float, low: float, high: float) -> bool:
-        """Return True when the candle body is at most 50 % of the full range
-        (i.e. the candle is a base / inside bar rather than a trending candle).
+        """Return True when the candle qualifies as a consolidation base.
+
+        Rules:
+        - Body must be ≤ 50 % of the full range.
+        - Lower wick must not exceed 60 % of range (rejects hammers).
+        - Upper wick must not exceed 60 % of range (rejects shooting stars).
         """
         full_range = abs(high - low)
         if full_range == 0:
             return True
-        return (abs(close - open) / full_range) * 100 <= 50.0
+        if (abs(close - open) / full_range) * 100 > 50.0:
+            return False
+        lower_wick = min(open, close) - low
+        if lower_wick / full_range > 0.6:
+            return False
+        upper_wick = high - max(open, close)
+        if upper_wick / full_range > 0.6:
+            return False
+        return True
+
+    @staticmethod
+    def _find_base_candle(candidates: DataFrame) -> Optional[Any]:
+        """Return the most compact base candle from a DataFrame of candidates.
+
+        Among rows passing ``is_it_base_candle()`` (body ≤ 50 %, not a
+        hammer/shooting-star), pick the one with the smallest total range
+        (high − low).  A smaller range means tighter consolidation and a
+        more reliable demand zone boundary.  Hammers and shooting stars are
+        excluded because their extreme wicks distort the zone definition.
+        Fallback: last row of the candidates DataFrame.
+        """
+        if candidates.empty:
+            return None
+
+        best_row = None
+        best_range = float("inf")
+
+        for _, row in candidates.iterrows():
+            o = float(row["open"])
+            c = float(row["close"])
+            l = float(row["low"])
+            h = float(row["high"])
+            if not FollowTheFootPrints.is_it_base_candle(open=o, close=c, low=l, high=h):
+                continue
+            candle_range = abs(h - l)
+            if candle_range < best_range:
+                best_range = candle_range
+                best_row = row
+
+        return best_row if best_row is not None else candidates.iloc[-1]
 
     def get_stocks_with_base_before_follow_through(
         self,
@@ -487,14 +570,101 @@ class FollowTheFootPrints:
                 )
 
     # ------------------------------------------------------------------
+    # Backtest helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _find_zone_entries(
+        df: DataFrame, zone_low: float, zone_high: float
+    ) -> List[Dict[str, Any]]:
+        """Find all bars where the weekly low entered the demand zone."""
+        entries: List[Dict[str, Any]] = []
+        for i in range(len(df)):
+            low = float(df.iloc[i]["low"])
+            if low <= zone_high and low >= zone_low * 0.95:
+                entries.append({"iloc_idx": i, "low": low})
+        return entries
+
+    @staticmethod
+    def _did_bounce(
+        df: DataFrame,
+        entry_idx: int,
+        entry_low: float,
+        weeks_ahead: int,
+        min_gain_pct: float = _BOUNCE_MIN_PCT,
+    ) -> bool:
+        """Return True if close exceeds entry_low + min_gain_pct within *weeks_ahead* bars."""
+        future = df.iloc[entry_idx + 1 : entry_idx + weeks_ahead + 1]
+        if future.empty:
+            return False
+        for _, row in future.iterrows():
+            gain = ((float(row["close"]) - entry_low) / entry_low) * 100
+            if gain >= min_gain_pct:
+                return True
+        return False
+
+    @staticmethod
+    def _distance_to_zone(
+        current_price: float, zone_low: float, zone_high: float
+    ) -> float:
+        """Distance from current price to demand zone; 0 when inside."""
+        if zone_low <= current_price <= zone_high:
+            return 0.0
+        return min(abs(current_price - zone_low), abs(current_price - zone_high))
+
+    def _run_backtest_for_entry(
+        self,
+        data_ohlc: DataFrame,
+        zone_low: float,
+        zone_high: float,
+        current_price: float,
+    ) -> Dict[str, Any]:
+        """Run bounce-back backtest for a single demand zone.
+
+        Returns ``pct_from_zone`` and ``likelihood_to_bounce``
+        (score = 0.4 x 1-month success rate + 0.6 x 2-month success rate).
+        """
+        df = data_ohlc.reset_index(drop=True)
+        entries = self._find_zone_entries(df, zone_low, zone_high)
+
+        distance = self._distance_to_zone(current_price, zone_low, zone_high)
+        pct_from_zone = (distance / zone_low * 100) if zone_low else 0.0
+
+        if not entries:
+            return {
+                "pct_from_zone": round(pct_from_zone, 1),
+                "likelihood_to_bounce": 0.0,
+            }
+
+        bounced_1m = bounced_2m = 0
+        for ent in entries:
+            if self._did_bounce(df, ent["iloc_idx"], ent["low"], _WEEKS_1_MONTH):
+                bounced_1m += 1
+            if self._did_bounce(df, ent["iloc_idx"], ent["low"], _WEEKS_2_MONTHS):
+                bounced_2m += 1
+
+        n = len(entries)
+        sr_1m = (bounced_1m / n * 100) if n else 0.0
+        sr_2m = (bounced_2m / n * 100) if n else 0.0
+        score = sr_1m * 0.4 + sr_2m * 0.6
+
+        return {
+            "pct_from_zone": round(pct_from_zone, 1),
+            "likelihood_to_bounce": round(score, 1),
+        }
+
+    # ------------------------------------------------------------------
     # Main orchestration
     # ------------------------------------------------------------------
 
     def process(self) -> None:
-        """Run the full analysis pipeline and write results to a CSV file.
+        """Run the full analysis pipeline with backtest and write a proximity report CSV.
 
-        Output file: ``{index}_{mode}.csv`` in the current working directory.
-        Only stocks with confirmed follow-through and a positive gain are saved.
+        Output file: ``{index}_{mode}.csv`` – stocks nearest to their demand
+        zone, sorted by ``pct_away`` (IN ZONE first), with a
+        ``likelihood_to_bounce_pct`` column derived from historical backtest.
+        Only stocks with confirmed follow-through, a fresh zone, and a positive
+        gain are included.  The same CSV is sent to Telegram when configured.
         """
         logger.info(
             "Analysis started | index=%s | interval=%s | %s → %s",
@@ -545,6 +715,26 @@ class FollowTheFootPrints:
                 self.get_stocks_with_follow_through(potential_stocks, data_ohlc)
                 self.add_percentage_of_change(potential_stocks)
 
+                for item in potential_stocks:
+                    zone_low = item.get("base_candle_low")
+                    zone_high = item.get("base_candle_high")
+                    current = item.get("current_closing_price")
+                    if (
+                        item.get("follow_through") != "Y"
+                        or item.get("fresh") != "Y"
+                        or zone_low is None
+                        or zone_high is None
+                        or (isinstance(zone_low, float) and np.isnan(zone_low))
+                        or (isinstance(zone_high, float) and np.isnan(zone_high))
+                        or current is None
+                        or (isinstance(current, float) and np.isnan(current))
+                    ):
+                        continue
+                    backtest = self._run_backtest_for_entry(
+                        data_ohlc, zone_low, zone_high, current
+                    )
+                    item.update(backtest)
+
                 self.good_stocks.extend(potential_stocks)
 
             except Exception as e:
@@ -564,16 +754,42 @@ class FollowTheFootPrints:
             logger.warning("No results found. CSV not written.")
             return
 
-        output_df = df[
+        filtered = df[
             (df["follow_through"] == "Y")
+            & (df["fresh"] == "Y")
             & df["percentage_of_change"].notna()
             & (df["percentage_of_change"] > 0)
-        ].sort_values("percentage_of_change")
+        ]
+
+        if "pct_from_zone" not in filtered.columns or filtered["pct_from_zone"].notna().sum() == 0:
+            logger.warning("No backtest data available. CSV not written.")
+            return
+
+        filtered = filtered[filtered["pct_from_zone"].notna()].copy()
+
+        if filtered.empty:
+            logger.warning("No results after filtering. CSV not written.")
+            return
+
+        proximity_df = pd.DataFrame({
+            "stock": filtered["stock"].values,
+            "current_price": filtered["current_closing_price"].round(2).values,
+            "zone_low": filtered["base_candle_low"].round(2).values,
+            "zone_high": filtered["base_candle_high"].round(2).values,
+            "pct_away": filtered["pct_from_zone"].round(1).values,
+            "status": filtered["pct_from_zone"].apply(
+                lambda x: "IN ZONE" if x == 0 else f"{x:.1f}% away"
+            ).values,
+            "base_body_pct": filtered["base_candle_body_pct"].round(1).values,
+            "likelihood_to_bounce_pct": filtered["likelihood_to_bounce"].round(1).values,
+        })
+
+        proximity_df = proximity_df.sort_values("pct_away", ascending=True)
 
         output_path = f"{self.index}_{self.mode}.csv"
-        output_df.to_csv(output_path, encoding="utf-8", index=False)
-        logger.info("Results written to %s (%d rows)", output_path, len(output_df))
-        self._send_telegram_alert(output_path, len(output_df))
+        proximity_df.to_csv(output_path, encoding="utf-8", index=False)
+        logger.info("Proximity report written to %s (%d rows)", output_path, len(proximity_df))
+        self._send_telegram_alert(output_path, len(proximity_df))
 
     def _send_telegram_alert(self, csv_path: str, count: int) -> None:
         """Send the generated CSV to Telegram if credentials are configured."""
@@ -586,9 +802,10 @@ class FollowTheFootPrints:
             msg_data = {
                 "chat_id": self.telegram_chat_id,
                 "text": (
-                    f"📊 *Market Scan Completed*\n\n"
+                    f"📊 *Stocks Nearest to Demand Zone*\n\n"
                     f"Index: {self.index}\nInterval: {self.interval}\n"
-                    f"Stocks Found: {count}\n\nFile attached below 👇"
+                    f"Stocks Found: {count}\n\n"
+                    f"Sorted by proximity (IN ZONE first) with likelihood to bounce 👇"
                 ),
                 "parse_mode": "Markdown",
             }

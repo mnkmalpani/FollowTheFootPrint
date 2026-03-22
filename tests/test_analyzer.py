@@ -218,6 +218,24 @@ class TestIsBaseCandle:
             open=100.0, close=100.0, low=100.0, high=100.0
         ) is True
 
+    def test_hammer_is_not_base(self):
+        # Lower wick = 100-89 = 11, range = 12 → 91.7 % > 60 % → rejected
+        assert FollowTheFootPrints.is_it_base_candle(
+            open=100.0, close=101.0, low=89.0, high=101.0
+        ) is False
+
+    def test_shooting_star_is_not_base(self):
+        # Upper wick = 112-101 = 11, range = 12 → 91.7 % > 60 % → rejected
+        assert FollowTheFootPrints.is_it_base_candle(
+            open=100.0, close=101.0, low=100.0, high=112.0
+        ) is False
+
+    def test_moderate_wick_is_still_base(self):
+        # Lower wick = 100-97 = 3, range = 8 → 37.5 % ≤ 60 % → accepted
+        assert FollowTheFootPrints.is_it_base_candle(
+            open=100.0, close=102.0, low=97.0, high=105.0
+        ) is True
+
 
 # ---------------------------------------------------------------------------
 # Average percentage change calculation
@@ -362,8 +380,9 @@ class TestIdentifyPossibleDz:
         # Add a second leg-out right after the first.
         df.at[9, "leg"] = "green_leg_out"
         analyzer.identify_possible_dz(df)
-        # The later consecutive DZ should be NaN (de-duplicated).
-        assert pd.isna(df.loc[9, "dz"]) or df.loc[9, "dz"] != "Y"
+        # The *earlier* consecutive DZ should be removed; only the last is kept.
+        assert pd.isna(df.loc[8, "dz"]) or df.loc[8, "dz"] != "Y"
+        assert df.loc[9, "dz"] == "Y"
 
 
 # ---------------------------------------------------------------------------
@@ -418,6 +437,90 @@ class TestIsFreshZone:
 
 
 # ---------------------------------------------------------------------------
+# Follow-through detection + zone range
+# ---------------------------------------------------------------------------
+
+class TestGetStocksWithFollowThrough:
+    """Tests for get_stocks_with_follow_through() focusing on zone range logic."""
+
+    def _make_scenario_df(self) -> pd.DataFrame:
+        """12-bar synthetic DataFrame where:
+
+        - Bars 0-2 are the 3 prior consolidation candles (potential base candles).
+          Bar 0 has a deep lower wick (low=80) — rejected as representative by
+          the hammer rule, but its low MUST appear in base_candle_low (composite
+          zone floor).
+          Bar 1 has the tightest qualifying range (low=94, high=99, range=5).
+          Bar 2 has a slightly wider range (low=95, high=101, range=6).
+        - Bar 3 is the green leg-out candle.
+        - Bars 4-11 are green follow-through candles.  The _colour() indexing
+          helper requires at least 9 rows from the DZ date forward to reach all
+          positional checks, so we include 9 post-DZ bars.
+        """
+        n = 12
+        dates = pd.date_range("2024-01-01", periods=n, freq="W")
+
+        opens  = [95.0, 96.0, 97.0] + [100.0 + i * 3 for i in range(9)]
+        closes = [96.0, 97.0, 98.0] + [103.0 + i * 3 for i in range(9)]
+        highs  = [98.0, 99.0, 101.0] + [106.0 + i * 3 for i in range(9)]
+        lows   = [80.0, 94.0, 95.0]  + [ 98.0 + i * 3 for i in range(9)]
+
+        df = pd.DataFrame(
+            {
+                "Datetime": dates,
+                "open":  opens,
+                "close": closes,
+                "high":  highs,
+                "low":   lows,
+                "vol":   [1_000] * n,
+            }
+        )
+        df.loc[df["open"] <= df["close"], "candle_colour"] = "Green"
+        df.loc[df["open"] > df["close"], "candle_colour"] = "Red"
+        df["%_of_change"] = (
+            (df["close"] - df["close"].shift(1)) / df["close"].shift(1)
+        ) * 100
+        return df
+
+    def test_follow_through_detected(self, analyzer):
+        df = self._make_scenario_df()
+        dz_date = df["Datetime"].iloc[3]
+        stocks = [{"stock": "TEST.NS", "date": dz_date}]
+        analyzer.get_stocks_with_follow_through(stocks, df)
+        assert stocks[0]["follow_through"] == "Y"
+
+    def test_base_candle_date_is_populated(self, analyzer):
+        df = self._make_scenario_df()
+        dz_date = df["Datetime"].iloc[3]
+        stocks = [{"stock": "TEST.NS", "date": dz_date}]
+        analyzer.get_stocks_with_follow_through(stocks, df)
+        item = stocks[0]
+        assert "base_candle_date" in item
+        assert pd.notna(item["base_candle_date"])
+
+    def test_base_candle_low_uses_min_of_all_prior_candles(self, analyzer):
+        """Zone floor must equal the minimum low of all 3 prior candles (80),
+        even though the representative base candle (bar 1) has low=94.
+        """
+        df = self._make_scenario_df()
+        dz_date = df["Datetime"].iloc[3]
+        stocks = [{"stock": "TEST.NS", "date": dz_date}]
+        analyzer.get_stocks_with_follow_through(stocks, df)
+        # min(80, 94, 95) = 80 — bar 0 is rejected as a hammer but its low
+        # must still anchor the zone floor.
+        assert stocks[0]["base_candle_low"] == pytest.approx(80.0)
+
+    def test_base_candle_high_is_body_max_of_representative_candle(self, analyzer):
+        """Zone ceiling = max(open, close) of the representative base candle (bar 1)."""
+        df = self._make_scenario_df()
+        dz_date = df["Datetime"].iloc[3]
+        stocks = [{"stock": "TEST.NS", "date": dz_date}]
+        analyzer.get_stocks_with_follow_through(stocks, df)
+        # Bar 1: max(open=96, close=97) = 97
+        assert stocks[0]["base_candle_high"] == pytest.approx(97.0)
+
+
+# ---------------------------------------------------------------------------
 # Percentage-of-change annotation
 # ---------------------------------------------------------------------------
 
@@ -439,6 +542,93 @@ class TestAddPercentageOfChange:
 
 
 # ---------------------------------------------------------------------------
+# Backtest helpers
+# ---------------------------------------------------------------------------
+
+class TestFindZoneEntries:
+    def test_entries_found_when_low_inside_zone(self, analyzer):
+        df = pd.DataFrame({
+            "Datetime": pd.date_range("2023-01-01", periods=5, freq="W"),
+            "open": [100, 105, 95, 110, 115],
+            "high": [108, 112, 102, 118, 120],
+            "low": [92, 98, 88, 105, 110],
+            "close": [105, 107, 100, 115, 118],
+        })
+        entries = FollowTheFootPrints._find_zone_entries(df, 90.0, 100.0)
+        assert len(entries) >= 2
+        assert all("iloc_idx" in e and "low" in e for e in entries)
+
+    def test_no_entries_when_price_above_zone(self, analyzer):
+        df = pd.DataFrame({
+            "Datetime": pd.date_range("2023-01-01", periods=3, freq="W"),
+            "open": [200, 210, 220],
+            "high": [210, 220, 230],
+            "low": [195, 205, 215],
+            "close": [208, 218, 228],
+        })
+        entries = FollowTheFootPrints._find_zone_entries(df, 90.0, 100.0)
+        assert entries == []
+
+
+class TestDidBounce:
+    def test_bounce_detected(self, analyzer):
+        df = pd.DataFrame({
+            "close": [100, 95, 98, 106, 110, 115],
+        })
+        assert FollowTheFootPrints._did_bounce(df, 1, 95.0, 4) is True
+
+    def test_no_bounce_when_gain_insufficient(self, analyzer):
+        df = pd.DataFrame({
+            "close": [100, 95, 96, 97, 98, 99],
+        })
+        assert FollowTheFootPrints._did_bounce(df, 1, 95.0, 4) is False
+
+    def test_no_bounce_on_empty_future(self, analyzer):
+        df = pd.DataFrame({"close": [100]})
+        assert FollowTheFootPrints._did_bounce(df, 0, 100.0, 4) is False
+
+
+class TestDistanceToZone:
+    def test_inside_zone_returns_zero(self):
+        assert FollowTheFootPrints._distance_to_zone(95.0, 90.0, 100.0) == 0.0
+
+    def test_above_zone(self):
+        assert FollowTheFootPrints._distance_to_zone(110.0, 90.0, 100.0) == pytest.approx(10.0)
+
+    def test_below_zone(self):
+        assert FollowTheFootPrints._distance_to_zone(85.0, 90.0, 100.0) == pytest.approx(5.0)
+
+
+class TestRunBacktestForEntry:
+    def test_returns_pct_from_zone_and_likelihood(self, analyzer):
+        n = 20
+        closes = [100 + i * 2 for i in range(n)]
+        df = pd.DataFrame({
+            "Datetime": pd.date_range("2023-01-01", periods=n, freq="W"),
+            "open": [c - 1 for c in closes],
+            "high": [c + 3 for c in closes],
+            "low": [c - 3 for c in closes],
+            "close": closes,
+        })
+        result = analyzer._run_backtest_for_entry(df, 95.0, 102.0, 138.0)
+        assert "pct_from_zone" in result
+        assert "likelihood_to_bounce" in result
+        assert result["pct_from_zone"] >= 0
+
+    def test_no_entries_returns_zero_likelihood(self, analyzer):
+        df = pd.DataFrame({
+            "Datetime": pd.date_range("2023-01-01", periods=5, freq="W"),
+            "open": [200, 210, 220, 230, 240],
+            "high": [210, 220, 230, 240, 250],
+            "low": [195, 205, 215, 225, 235],
+            "close": [208, 218, 228, 238, 248],
+        })
+        result = analyzer._run_backtest_for_entry(df, 90.0, 100.0, 248.0)
+        assert result["likelihood_to_bounce"] == 0.0
+        assert result["pct_from_zone"] > 0
+
+
+# ---------------------------------------------------------------------------
 # CLI argument parsing
 # ---------------------------------------------------------------------------
 
@@ -448,7 +638,7 @@ class TestCLI:
         args = _build_parser().parse_args([])
         assert args.mode == "weekly"
         assert args.index == "nifty100"
-        assert args.days == 365
+        assert args.days == 730
 
     def test_daily_mode_parsed(self):
         from followthefootprints.__main__ import _build_parser

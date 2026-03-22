@@ -58,6 +58,22 @@ uv run ftf --days 730 --log-level DEBUG
 
 Results are written to `{index}_{mode}.csv` (e.g. `nifty100_weekly.csv`).
 
+### Demand zone backtest (experiments)
+
+Validate the approach using historical data: when price enters a demand zone, does it bounce back within 1–2 months?
+
+```bash
+# Backtest top 10 stocks from CSV + Thomas Cook example
+uv run python experiments/demand_zone_backtest.py
+
+# Thomas Cook example only
+uv run python experiments/demand_zone_backtest.py --examples-only
+
+# Or: make backtest
+```
+
+See [experiments/README.md](experiments/README.md) for details.
+
 ### Telegram alerts
 
 When `TELEGRAM_TOKEN` and `TELEGRAM_CHAT_ID` are set (via `.env` or environment), the CSV and a summary are sent to Telegram after each run. Run `./setup.sh` to create `.env` from `.env.example`, then edit `.env` with your values.
@@ -92,6 +108,7 @@ To skip Telegram even when credentials are set, use `--no-telegram`.
 ```bash
 uv sync --dev
 uv run pytest
+# Or: make test
 ```
 
 Tests use synthetic data – no network calls.

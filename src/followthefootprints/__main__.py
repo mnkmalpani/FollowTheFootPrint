@@ -38,9 +38,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--days",
         type=int,
-        default=365,
+        default=730,
         metavar="N",
-        help="Number of calendar days of history to fetch (default: 365)",
+        help="Number of calendar days of history to fetch (default: 730 ≈ 2 years)",
     )
     parser.add_argument(
         "--log-level",

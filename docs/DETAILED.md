@@ -11,7 +11,7 @@ The scanner looks for stocks that have printed a green leg-out candle from a fre
 | **Demand zone** | A green leg-out that fires *from* a support zone with no resistance or red leg-in in the prior 6 bars |
 | **Fresh zone** | Confirms the support has not been revisited since the DZ formed |
 | **Follow-through** | Checks the next 3–4 candles for a bullish pattern (GGG, GRGG, GGRG) |
-| **Output** | Only stocks with confirmed follow-through and a positive gain are written to the CSV |
+| **Output** | Only stocks with confirmed follow-through and a positive gain are written to the CSV. Each row includes `base_candle_low` and `base_candle_high` (the candle before the leg-out) to define the demand zone per chart. |
 
 ---
 
