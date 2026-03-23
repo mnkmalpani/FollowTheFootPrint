@@ -21,6 +21,7 @@ FollowTheFootPrints is a **demand-zone stock scanner** for NSE/NASDAQ indices. I
 | `uv run ftf` | Run scanner (default: nifty100, weekly) |
 | `uv run ftf --mode daily --index nifty50` | Different mode/index |
 | `make backtest` | Validate demand zone bounce-back (experiments) |
+| `make update` | Pull latest code + re-sync deps (server incremental deploy) |
 | `./setup.sh` | First-time setup: uv sync + create .env from .env.example |
 
 ## Important Paths
@@ -28,6 +29,7 @@ FollowTheFootPrints is a **demand-zone stock scanner** for NSE/NASDAQ indices. I
 - **Core logic**: `src/followthefootprints/analyzer.py`
 - **Indices / tickers**: `src/followthefootprints/indices.py`, `index_fetcher.py`
 - **CLI**: `src/followthefootprints/__main__.py`
+- **Deployment guide**: `docs/DEPLOYMENT.md` – server setup, cron/systemd scheduling, monitoring
 - **Legacy script**: `src/weekly_low_gemini.py` – standalone, uses different data source (niftyindices.com). Not part of the installable package.
 
 ## Output

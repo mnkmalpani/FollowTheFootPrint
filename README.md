@@ -99,7 +99,18 @@ To skip Telegram even when credentials are set, use `--no-telegram`.
 | `--index` | Index: nifty100, nifty200, nifty50, nasdaq100 | nifty100 |
 | `--days` | Calendar days of history | 365 |
 | `--log-level` | DEBUG, INFO, WARNING, ERROR | INFO |
+| `--log-file` | Append logs to file (in addition to stderr) | — |
 | `--no-telegram` | Skip Telegram even if credentials are set | — |
+
+---
+
+## Server Deployment & Scheduling
+
+See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** for a complete guide covering:
+
+- One-time and incremental deployment
+- Scheduling with cron (simple) or systemd timers (scalable)
+- Monitoring, log rotation, and failure alerts
 
 ---
 

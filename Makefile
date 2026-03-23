@@ -1,7 +1,7 @@
 # FollowTheFootPrints – dev shortcuts
 # Uses uv; run `uv sync --dev` first if needed
 
-.PHONY: test run setup lint backtest
+.PHONY: test run setup sync update backtest
 
 test:
 	uv run pytest
@@ -18,3 +18,8 @@ setup:
 # Install dev deps (for CI or fresh clone)
 sync:
 	uv sync --dev
+
+# Pull latest code and re-sync deps (server incremental deploy)
+update:
+	git pull origin main
+	uv sync
